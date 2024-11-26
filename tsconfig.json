@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",                   // 변환할 JavaScript의 대상 버전
+    "module": "CommonJS",                 // Node.js에서는 CommonJS 사용
+    "rootDir": "./src",                   // 소스 파일 디렉토리
+    "outDir": "./dist",                   // 컴파일된 파일 저장 디렉토리
+    "strict": true,                       // 엄격한 타입 체크 활성화
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "skipLibCheck": true,                 // 라이브러리 타입 체크 건너뛰기
+    "forceConsistentCasingInFileNames": true // 파일 이름 대소문자 엄격히 체크
+  },
+  "include": ["src"],                     // 컴파일 대상 디렉토리
+  "exclude": ["node_modules"]            // 제외 디렉토리
+}
