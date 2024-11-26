@@ -180,4 +180,8 @@ app.post('/', (req: Request, res: Response) => {
   res.status(200).send('hello world'); // Slack에 성공적으로 응답
 });
 
+app.get('/', (req: Request, res: Response) => {
+  res.send('Hello World!');
+});
+
 module.exports = app;
