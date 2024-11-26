@@ -177,12 +177,7 @@ app.post('/', (req: Request, res: Response) => {
     res.status(200).send(challenge); // challenge 값을 그대로 반환
   }
   // 다른 이벤트 처리
-  res.status(200).send(); // Slack에 성공적으로 응답
+  res.status(200).send('hello world'); // Slack에 성공적으로 응답
 });
 
-
-
-// 서버 실행
-app.listen(PORT, () => {
-  console.log(`⚡️ Server is running at http://localhost:${PORT}`);
-});
+module.exports = app;
