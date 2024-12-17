@@ -2,6 +2,9 @@ import express, {Request, Response} from 'express';
 import dotenv from 'dotenv';
 import * as cheerio from 'cheerio';
 import cron from 'node-cron';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 
 const axios = require('axios');
 
@@ -9,6 +12,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // 공휴일 아이템 타입
 interface HolidayItem {
@@ -39,6 +45,11 @@ interface HolidayResponse {
     body: HolidayBody;
   };
 }
+
+const getKoreanTime = (): string => {
+  return dayjs().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss');
+};
+
 
 // 미들웨어 설정
 app.use(express.urlencoded({ extended: true })); // urlencoded 미들웨어 설정
@@ -192,11 +203,11 @@ app.post('/slack/command', async (req: Request, res: Response) => {
 
 const checkHoliday = async () => {
 
-  const today = new Date()
-  const formattedToday = today.toISOString().split('T')[0];
+  const today = dayjs().tz('Asia/Seoul');
+  const formattedToday = today.format('YYYY-MM-DD');
 
   const isHoliday = await isKoreanHoliday(formattedToday);
-  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+  const isWeekend = today.day() === 0 || today.day() === 6;
 
   return isHoliday || isWeekend;
 };
@@ -233,6 +244,8 @@ const isKoreanHoliday = async (date: string): Promise<boolean> => {
 
 // 밥플러스 메뉴 전송 작업
 const sendDailyMenu = async () => {
+  console.log(`현재 한국 시간: ${dayjs().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')}`);
+
   const isHoliday = await checkHoliday()
   if (isHoliday) {
     console.log('오늘은 공휴일입니다. 메시지를 전송하지 않습니다.');
@@ -247,8 +260,23 @@ const sendDailyMenu = async () => {
 };
 
 // 스케줄링 설정: 오전 10시 30분 & 오후 5시 30분
-cron.schedule('30 10 * * *', sendDailyMenu); // 오전 10:30
-cron.schedule('30 17 * * *', sendDailyMenu); // 오후 5:30
+cron.schedule(
+  '30 10 * * *',
+  () => {
+    console.log(`스케줄 실행 시간: ${dayjs().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')}`);
+    sendDailyMenu();
+  },
+  { scheduled: true, timezone: 'Asia/Seoul' }
+);
+
+cron.schedule(
+  '30 17 * * *',
+  () => {
+    console.log(`스케줄 실행 시간: ${dayjs().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')}`);
+    sendDailyMenu();
+  },
+  { scheduled: true, timezone: 'Asia/Seoul' }
+);
 
 // 기본 라우트
 app.post('/', (req: Request, res: Response) => {

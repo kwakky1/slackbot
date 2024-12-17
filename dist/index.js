@@ -40,10 +40,18 @@ const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const cheerio = __importStar(require("cheerio"));
 const node_cron_1 = __importDefault(require("node-cron"));
+const dayjs_1 = __importDefault(require("dayjs"));
+const utc_1 = __importDefault(require("dayjs/plugin/utc"));
+const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
 const axios = require('axios');
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
+dayjs_1.default.extend(utc_1.default);
+dayjs_1.default.extend(timezone_1.default);
+const getKoreanTime = () => {
+    return (0, dayjs_1.default)().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss');
+};
 // 미들웨어 설정
 app.use(express_1.default.urlencoded({ extended: true })); // urlencoded 미들웨어 설정
 app.use(express_1.default.json()); // JSON 데이터 처리
@@ -184,10 +192,10 @@ app.post('/slack/command', async (req, res) => {
     }
 });
 const checkHoliday = async () => {
-    const today = new Date();
-    const formattedToday = today.toISOString().split('T')[0];
+    const today = (0, dayjs_1.default)().tz('Asia/Seoul');
+    const formattedToday = today.format('YYYY-MM-DD');
     const isHoliday = await isKoreanHoliday(formattedToday);
-    const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+    const isWeekend = today.day() === 0 || today.day() === 6;
     return isHoliday || isWeekend;
 };
 const isKoreanHoliday = async (date) => {
@@ -214,6 +222,7 @@ const isKoreanHoliday = async (date) => {
 };
 // 밥플러스 메뉴 전송 작업
 const sendDailyMenu = async () => {
+    console.log(`현재 한국 시간: ${(0, dayjs_1.default)().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')}`);
     const isHoliday = await checkHoliday();
     if (isHoliday) {
         console.log('오늘은 공휴일입니다. 메시지를 전송하지 않습니다.');
@@ -227,8 +236,14 @@ const sendDailyMenu = async () => {
     }
 };
 // 스케줄링 설정: 오전 10시 30분 & 오후 5시 30분
-node_cron_1.default.schedule('30 10 * * *', sendDailyMenu); // 오전 10:30
-node_cron_1.default.schedule('30 17 * * *', sendDailyMenu); // 오후 5:30
+node_cron_1.default.schedule('30 10 * * *', () => {
+    console.log(`스케줄 실행 시간: ${(0, dayjs_1.default)().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')}`);
+    sendDailyMenu();
+}, { scheduled: true, timezone: 'Asia/Seoul' });
+node_cron_1.default.schedule('30 17 * * *', () => {
+    console.log(`스케줄 실행 시간: ${(0, dayjs_1.default)().tz('Asia/Seoul').format('YYYY-MM-DD HH:mm:ss')}`);
+    sendDailyMenu();
+}, { scheduled: true, timezone: 'Asia/Seoul' });
 // 기본 라우트
 app.post('/', (req, res) => {
     const { type, challenge } = req.body;
