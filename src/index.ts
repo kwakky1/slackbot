@@ -1,6 +1,7 @@
 import express, {Request, Response} from 'express';
 import dotenv from 'dotenv';
 import * as cheerio from 'cheerio';
+import cron from 'node-cron';
 
 const axios = require('axios');
 
@@ -9,15 +10,35 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-interface SlackEventBody {
-  type: string;
-  event?: {
-    type: string;
-    [key: string]: any;
-  };
-  challenge?: string;
+// 공휴일 아이템 타입
+interface HolidayItem {
+  dateKind: string; // 날짜 종류
+  dateName: string; // 날짜 이름
+  isHoliday: string; // 공휴일 여부 (Y/N)
+  locdate: number;   // 날짜 (YYYYMMDD 형식)
+  seq: number;       // 순번
 }
 
+// API 응답의 body 타입
+interface HolidayBody {
+  items?: {
+    item: HolidayItem[] | HolidayItem; // 아이템이 배열 또는 단일 객체일 수 있음
+  };
+  numOfRows: number;
+  pageNo: number;
+  totalCount: number;
+}
+
+// API 전체 응답 타입
+interface HolidayResponse {
+  response: {
+    header: {
+      resultCode: string; // 결과 코드
+      resultMsg: string;  // 결과 메시지
+    };
+    body: HolidayBody;
+  };
+}
 
 // 미들웨어 설정
 app.use(express.urlencoded({ extended: true })); // urlencoded 미들웨어 설정
@@ -169,6 +190,65 @@ app.post('/slack/command', async (req: Request, res: Response) => {
   }
 });
 
+const checkHoliday = async () => {
+
+  const today = new Date()
+  const formattedToday = today.toISOString().split('T')[0];
+
+  const isHoliday = await isKoreanHoliday(formattedToday);
+  const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+
+  return isHoliday || isWeekend;
+};
+
+const isKoreanHoliday = async (date: string): Promise<boolean> => {
+  try {
+    const year = date.split('-')[0]; // 연도 추출
+    const month = date.split('-')[1]; // 월 추출
+
+    const response = await axios.get(
+      `http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo`,
+      {
+        params: {
+          solYear: year,
+          solMonth: month,
+          ServiceKey: encodeURIComponent(process.env.HOLIDAY_API_KEY as string),
+          _type: 'json'
+        },
+      }
+    );
+
+    const items = response.data.response.body.items?.item;
+    const holidays = Array.isArray(items) ? items : items ? [items] : [];
+    const formattedDate = parseInt(date.replace(/-/g, ''));
+
+    return holidays.some(
+      (holiday: any) => holiday.locdate === formattedDate
+    );
+  } catch (error) {
+    console.error('공휴일 확인 중 오류 발생:', error);
+    return false;
+  }
+};
+
+// 밥플러스 메뉴 전송 작업
+const sendDailyMenu = async () => {
+  const isHoliday = await checkHoliday()
+  if (isHoliday) {
+    console.log('오늘은 공휴일입니다. 메시지를 전송하지 않습니다.');
+    return;
+  }
+  const text = '🍱 오늘의 밥플러스 메뉴입니다! 🍱';
+  const blogUrl = 'https://blog.naver.com/babplus123/221697747131';
+  const imageUrl = await getImageUrl(blogUrl);
+  if(imageUrl) {
+    await sendMessageToSlack(process.env.SLACK_CHANNEL_ID as string, text, imageUrl);
+  }
+};
+
+// 스케줄링 설정: 오전 10시 30분 & 오후 5시 30분
+cron.schedule('30 10 * * *', sendDailyMenu); // 오전 10:30
+cron.schedule('30 17 * * *', sendDailyMenu); // 오후 5:30
 
 // 기본 라우트
 app.post('/', (req: Request, res: Response) => {

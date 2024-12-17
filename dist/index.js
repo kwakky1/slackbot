@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const cheerio = __importStar(require("cheerio"));
+const node_cron_1 = __importDefault(require("node-cron"));
 const axios = require('axios');
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -182,6 +183,52 @@ app.post('/slack/command', async (req, res) => {
         res.status(400).send('알 수 없는 명령어입니다.');
     }
 });
+const checkHoliday = async () => {
+    const today = new Date();
+    const formattedToday = today.toISOString().split('T')[0];
+    const isHoliday = await isKoreanHoliday(formattedToday);
+    const isWeekend = today.getDay() === 0 || today.getDay() === 6;
+    return isHoliday || isWeekend;
+};
+const isKoreanHoliday = async (date) => {
+    try {
+        const year = date.split('-')[0]; // 연도 추출
+        const month = date.split('-')[1]; // 월 추출
+        const response = await axios.get(`http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo`, {
+            params: {
+                solYear: year,
+                solMonth: month,
+                ServiceKey: encodeURIComponent(process.env.HOLIDAY_API_KEY),
+                _type: 'json'
+            },
+        });
+        const items = response.data.response.body.items?.item;
+        const holidays = Array.isArray(items) ? items : items ? [items] : [];
+        const formattedDate = parseInt(date.replace(/-/g, ''));
+        return holidays.some((holiday) => holiday.locdate === formattedDate);
+    }
+    catch (error) {
+        console.error('공휴일 확인 중 오류 발생:', error);
+        return false;
+    }
+};
+// 밥플러스 메뉴 전송 작업
+const sendDailyMenu = async () => {
+    const isHoliday = await checkHoliday();
+    if (isHoliday) {
+        console.log('오늘은 공휴일입니다. 메시지를 전송하지 않습니다.');
+        return;
+    }
+    const text = '🍱 오늘의 밥플러스 메뉴입니다! 🍱';
+    const blogUrl = 'https://blog.naver.com/babplus123/221697747131';
+    const imageUrl = await getImageUrl(blogUrl);
+    if (imageUrl) {
+        await sendMessageToSlack(process.env.SLACK_CHANNEL_ID, text, imageUrl);
+    }
+};
+// 스케줄링 설정: 오전 10시 30분 & 오후 5시 30분
+node_cron_1.default.schedule('30 10 * * *', sendDailyMenu); // 오전 10:30
+node_cron_1.default.schedule('30 17 * * *', sendDailyMenu); // 오후 5:30
 // 기본 라우트
 app.post('/', (req, res) => {
     const { type, challenge } = req.body;
