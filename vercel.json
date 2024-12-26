@@ -2,15 +2,20 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/index.js",
-      "use": "@vercel/node",
-      "config": { "includeFiles": ["dist/**"] }
+      "src": "src/api/*.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "dist/index.js"
+      "src": "/api/sendDailyMenu",
+      "dest": "src/api/sendDailyMenu.ts"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/sendDailyMenu",
+      "schedule": "30 10 * * *"
     }
   ]
 }

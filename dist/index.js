@@ -195,6 +195,9 @@ const checkHoliday = async () => {
     const today = (0, dayjs_1.default)().tz('Asia/Seoul');
     const formattedToday = today.format('YYYY-MM-DD');
     const isHoliday = await isKoreanHoliday(formattedToday);
+    if (!isHoliday) {
+        console.log('한국 공휴일이 아닙니다.');
+    }
     const isWeekend = today.day() === 0 || today.day() === 6;
     return isHoliday || isWeekend;
 };
@@ -206,7 +209,7 @@ const isKoreanHoliday = async (date) => {
             params: {
                 solYear: year,
                 solMonth: month,
-                ServiceKey: encodeURIComponent(process.env.HOLIDAY_API_KEY),
+                ServiceKey: process.env.HOLIDAY_API_KEY,
                 _type: 'json'
             },
         });

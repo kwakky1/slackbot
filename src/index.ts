@@ -207,6 +207,9 @@ const checkHoliday = async () => {
   const formattedToday = today.format('YYYY-MM-DD');
 
   const isHoliday = await isKoreanHoliday(formattedToday);
+  if(!isHoliday){
+    console.log('한국 공휴일이 아닙니다.')
+  }
   const isWeekend = today.day() === 0 || today.day() === 6;
 
   return isHoliday || isWeekend;
@@ -216,14 +219,13 @@ const isKoreanHoliday = async (date: string): Promise<boolean> => {
   try {
     const year = date.split('-')[0]; // 연도 추출
     const month = date.split('-')[1]; // 월 추출
-
     const response = await axios.get(
       `http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo`,
       {
         params: {
           solYear: year,
           solMonth: month,
-          ServiceKey: encodeURIComponent(process.env.HOLIDAY_API_KEY as string),
+          ServiceKey: process.env.HOLIDAY_API_KEY as string,
           _type: 'json'
         },
       }
@@ -258,7 +260,6 @@ const sendDailyMenu = async () => {
     await sendMessageToSlack(process.env.SLACK_CHANNEL_ID as string, text, imageUrl);
   }
 };
-
 // 스케줄링 설정: 오전 10시 30분 & 오후 5시 30분
 cron.schedule(
   '30 10 * * *',
@@ -284,6 +285,7 @@ app.post('/', (req: Request, res: Response) => {
   if (type === 'url_verification') {
     res.status(200).send(challenge); // challenge 값을 그대로 반환
   }
+
   // 다른 이벤트 처리
   res.status(200).send('hello world'); // Slack에 성공적으로 응답
 });

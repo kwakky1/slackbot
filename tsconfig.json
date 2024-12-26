@@ -7,6 +7,7 @@
     "strict": true,                       // 엄격한 타입 체크 활성화
     "esModuleInterop": true,
     "moduleResolution": "node",
+    "types": ["node"],
     "skipLibCheck": true,                 // 라이브러리 타입 체크 건너뛰기
     "forceConsistentCasingInFileNames": true // 파일 이름 대소문자 엄격히 체크
   },
