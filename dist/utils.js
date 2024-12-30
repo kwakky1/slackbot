@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -6,7 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendDailyMenu = exports.sendMessageToSlack = exports.getImageUrl = exports.getFirstImageFromIframe = exports.getIframeUrl = exports.updateImageUrlType = exports.getKoreanTime = void 0;
 // utils.ts
 const axios_1 = __importDefault(require("axios"));
-const cheerio_1 = __importDefault(require("cheerio"));
+const cheerio = __importStar(require("cheerio"));
 const dayjs_1 = __importDefault(require("dayjs"));
 const utc_1 = __importDefault(require("dayjs/plugin/utc"));
 const timezone_1 = __importDefault(require("dayjs/plugin/timezone"));
@@ -66,8 +99,9 @@ const getIframeUrl = async (blogUrl) => {
             headers: {
                 'User-Agent': 'Mozilla/5.0',
             },
+            maxRedirects: 5,
         });
-        const $ = cheerio_1.default.load(response.data);
+        const $ = cheerio.load(response.data);
         const iframeSrc = $('iframe#mainFrame').attr('src');
         return iframeSrc ? new URL(iframeSrc, blogUrl).href : null;
     }
@@ -84,7 +118,7 @@ const getFirstImageFromIframe = async (iframeUrl) => {
                 'User-Agent': 'Mozilla/5.0',
             },
         });
-        const $ = cheerio_1.default.load(response.data);
+        const $ = cheerio.load(response.data);
         let firstImageSrc = $('.se-main-container img').first().attr('src') || $('img').first().attr('data-src');
         if (!firstImageSrc)
             return null;
@@ -105,19 +139,27 @@ const getImageUrl = async (blogUrl) => {
     return iframeUrl ? await (0, exports.getFirstImageFromIframe)(iframeUrl) : null;
 };
 exports.getImageUrl = getImageUrl;
-const sendMessageToSlack = async (channel, text, imageUrl) => {
+const sendMessageToSlack = async (text, imageUrl) => {
     try {
+        // Webhook URL 환경변수에서 가져오기
+        const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+        if (!webhookUrl)
+            throw new Error('SLACK_WEBHOOK_URL이 설정되지 않았습니다.');
+        // Slack 메시지 포맷
         const payload = {
-            channel,
-            text,
-            attachments: [{ image_url: imageUrl, text: '네이버 블로그 이미지' }],
+            text, // 기본 텍스트
+            attachments: [
+                {
+                    text: '네이버 블로그 이미지', // 이미지 설명
+                    image_url: imageUrl, // 이미지 URL
+                },
+            ],
         };
-        await axios_1.default.post('https://slack.com/api/chat.postMessage', payload, {
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-            },
+        // Webhook에 POST 요청 보내기
+        await axios_1.default.post(webhookUrl, payload, {
+            headers: { 'Content-Type': 'application/json' },
         });
+        console.log('Slack 메시지 전송 성공!');
     }
     catch (error) {
         console.error('Slack 전송 오류:', error);
@@ -135,7 +177,11 @@ const sendDailyMenu = async () => {
     const blogUrl = 'https://blog.naver.com/babplus123/221697747131';
     const imageUrl = await (0, exports.getImageUrl)(blogUrl);
     if (imageUrl) {
-        await (0, exports.sendMessageToSlack)(process.env.SLACK_CHANNEL_ID, text, imageUrl);
+        const resizeImageUrl = (0, exports.updateImageUrlType)(imageUrl, 'w773');
+        await (0, exports.sendMessageToSlack)(text, resizeImageUrl);
+    }
+    else {
+        console.log('imageUrl이 존재하지 않습니다.');
     }
 };
 exports.sendDailyMenu = sendDailyMenu;

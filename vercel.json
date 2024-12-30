@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "src/api/*.ts",
+      "src": "src/api/sendDailyMenu.ts",
       "use": "@vercel/node"
     }
   ],
@@ -15,7 +15,7 @@
   "crons": [
     {
       "path": "/api/sendDailyMenu",
-      "schedule": "30 10 * * *"
+      "schedule": "30 1 * * *"
     }
   ]
 }

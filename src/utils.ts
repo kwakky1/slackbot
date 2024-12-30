@@ -1,6 +1,6 @@
 // utils.ts
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -72,8 +72,11 @@ export const getIframeUrl = async (blogUrl: string): Promise<string | null> => {
       headers: {
         'User-Agent': 'Mozilla/5.0',
       },
+      maxRedirects: 5,
     });
+
     const $ = cheerio.load(response.data);
+
     const iframeSrc = $('iframe#mainFrame').attr('src');
     return iframeSrc ? new URL(iframeSrc, blogUrl).href : null;
   } catch (error) {
@@ -106,19 +109,29 @@ export const getImageUrl = async (blogUrl: string): Promise<string | null> => {
   return iframeUrl ? await getFirstImageFromIframe(iframeUrl) : null;
 };
 
-export const sendMessageToSlack = async (channel: string, text: string, imageUrl: string) => {
+export const sendMessageToSlack = async (text: string, imageUrl: string) => {
   try {
+    // Webhook URL 환경변수에서 가져오기
+    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+    if (!webhookUrl) throw new Error('SLACK_WEBHOOK_URL이 설정되지 않았습니다.');
+
+    // Slack 메시지 포맷
     const payload = {
-      channel,
-      text,
-      attachments: [{ image_url: imageUrl, text: '네이버 블로그 이미지' }],
+      text, // 기본 텍스트
+      attachments: [
+        {
+          text: '네이버 블로그 이미지', // 이미지 설명
+          image_url: imageUrl, // 이미지 URL
+        },
+      ],
     };
-    await axios.post('https://slack.com/api/chat.postMessage', payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-      },
+
+    // Webhook에 POST 요청 보내기
+    await axios.post(webhookUrl, payload, {
+      headers: { 'Content-Type': 'application/json' },
     });
+
+    console.log('Slack 메시지 전송 성공!');
   } catch (error) {
     console.error('Slack 전송 오류:', error);
   }
@@ -136,6 +149,9 @@ export const sendDailyMenu = async () => {
   const blogUrl = 'https://blog.naver.com/babplus123/221697747131';
   const imageUrl = await getImageUrl(blogUrl);
   if(imageUrl) {
-    await sendMessageToSlack(process.env.SLACK_CHANNEL_ID as string, text, imageUrl);
+    const resizeImageUrl = updateImageUrlType(imageUrl, 'w773');
+    await sendMessageToSlack(text, resizeImageUrl);
+  } else {
+    console.log('imageUrl이 존재하지 않습니다.')
   }
 };
